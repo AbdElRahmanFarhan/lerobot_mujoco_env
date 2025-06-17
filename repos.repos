@@ -1,0 +1,13 @@
+repositories:
+  lerobot:
+    type: git
+    url: https://github.com/huggingface/lerobot.git
+    version: main
+  mink:
+    type: git
+    url: https://github.com/AbdElRahmanFarhan/mink.git
+    version: main
+  panda_mujoco_lerobot:
+    type: git
+    url: https://huggingface.co/datasets/Abderlrahman/panda_mujoco_lerobot
+    version: main

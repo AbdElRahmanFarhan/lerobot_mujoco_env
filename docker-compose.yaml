@@ -1,0 +1,16 @@
+services:
+  lerobot:
+    image: lerobot:latest
+    container_name: lerobot
+    network_mode: "host"
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /home/abdelrahman/workspace/panda_mujoco_lerobot:/home/panda_mujoco_lerobot
+      - /home/abdelrahman/workspace/mink:/home/mink
+
+    stdin_open: true 
+    tty: true 
+    restart: "no"
