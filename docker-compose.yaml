@@ -10,6 +10,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - /home/abdelrahman/workspace/panda_mujoco_lerobot:/home/panda_mujoco_lerobot
       - /home/abdelrahman/workspace/mink:/home/mink
+      - /home/abdelrahman/workspace/lerobot_mujoco_env:/home/lerobot_mujoco_env
 
     stdin_open: true 
     tty: true 

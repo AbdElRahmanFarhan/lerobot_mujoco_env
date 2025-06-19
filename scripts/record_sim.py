@@ -87,15 +87,15 @@ class DatasetRecordConfig:
     # A short but accurate description of the task performed during the recording (e.g. "Pick the Lego block and drop it in the box on the right.")
     single_task: str = "reach cube"
     # Root directory where the dataset will be stored (e.g. 'dataset/path').
-    root: str | Path  = "/home/panda_mujoco_lerobot"
+    root: str | Path  = "/home/test"
     # Limit the frames per second.
     fps: int = 30
     # Number of seconds for data recording for each episode.
-    episode_time_s: int | float = 5
+    episode_time_s: int | float = 8
     # Number of seconds for resetting the environment after each episode.
     reset_time_s: int | float = 60
     # Number of episodes to record.
-    num_episodes: int = 5
+    num_episodes: int = 50
     # Encode frames in the dataset into video
     video: bool = True
     # Upload dataset to Hugging Face hub.
@@ -145,7 +145,7 @@ def record_loop(
     mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
 
     # set random position for the box
-    x_rand = np.random.uniform(low=-0.1, high=0.1) 
+    x_rand = np.random.uniform(low=-0.2, high=0.2) 
     y_rand = np.random.uniform(low=-0.3, high=0.3)
 
     x, y = data.qpos[9: 11]
@@ -159,7 +159,7 @@ def record_loop(
     posture_task.set_target_from_configuration(configuration)
     
     # We'll track time ourselves for a smoother trajectory
-    rate = RateLimiter(frequency=50.0, warn=False)
+    rate = RateLimiter(frequency=30.0, warn=False)
 
     # Get box location
     box_pose = configuration.get_transform_frame_to_world("box", "body")
@@ -180,8 +180,7 @@ def record_loop(
     )
     approach_task.set_target(approach_goal)
     tasks = [approach_task, posture_task]
-    renderer.update_scene(data, camera="camera_hand")
-    rgb_img = renderer.render()
+
 
     timestamp = 0.0
 
@@ -190,8 +189,16 @@ def record_loop(
         timestamp += dt
 
         # replace it with env
-        observation = {f"{model.joint(i).name}.pos":configuration.q[i] for i in range(7)}
-        observation["camera_hand"] = rgb_img
+        observation = {f"{model.joint(i).name}.pos":data.qpos[i]*(180/np.pi) for i in range(7)}
+
+        renderer.update_scene(data, camera="camera_hand")
+        camera_hand_img = renderer.render()
+        observation["camera_hand"] = camera_hand_img
+
+        renderer.update_scene(data, camera="camera_far")
+        camera_far_img = renderer.render()
+        observation["camera_far"] = camera_far_img
+
         observation_frame = build_dataset_frame(dataset.features, observation, prefix="observation")
 
         converge_ik(configuration,
@@ -203,8 +210,8 @@ def record_loop(
             MAX_ITERS,)
         
         # Set robot controls (first 8 dofs in your configuration)
-        data.ctrl = configuration.q[:8]
-        action = {f"{model.joint(i).name}.pos":configuration.q[i] for i in range(7)}
+        data.ctrl = configuration.q[:8] 
+        action = {f"{model.joint(i).name}.pos":configuration.q[i]*(180/np.pi) for i in range(7)}
         action_frame = build_dataset_frame(dataset.features, action, prefix="action")
 
         # Step simulation
@@ -213,8 +220,6 @@ def record_loop(
         frame = {**observation_frame, **action_frame}
         dataset.add_frame(frame, task=single_task)
 
-        renderer.update_scene(data, camera="camera_hand")
-        rgb_img = renderer.render()
         rate.sleep()
 
 @parser.wrap()
@@ -225,13 +230,14 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
     model = mujoco.MjModel.from_xml_path("/home/mink/examples/franka_emika_panda/scene.xml")
     data = mujoco.MjData(model)
     renderer = mujoco.Renderer(model, 480, 640)
+    cameras = ["camera_hand", "camera_far"]
     # Create a Mink configuration
     configuration = mink.Configuration(model)
 
-    num_cameras = 1
     joint_names = [model.joint(i).name for i in range(7)]
     joint_features = {f"{joint_names[i]}.pos": float for i in range(7)}
-    camera_features = {"camera_hand": (480, 640, 3)}
+    camera_features = {"camera_hand": (480, 640, 3),
+                       "camera_far": (480, 640, 3)}
 
     observation_features = {**joint_features, **camera_features}
     action_features = joint_features
@@ -247,7 +253,7 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
         features=dataset_features,
         use_videos=cfg.dataset.video,
         image_writer_processes=cfg.dataset.num_image_writer_processes,
-        image_writer_threads=cfg.dataset.num_image_writer_threads_per_camera,
+        image_writer_threads=cfg.dataset.num_image_writer_threads_per_camera*len(cameras),
     )
 
     for recorded_episodes in range(cfg.dataset.num_episodes):

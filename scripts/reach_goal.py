@@ -45,91 +45,86 @@ def main():
     # Create a Mink configuration
     configuration = mink.Configuration(model)
 
-
-    cam_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "camera_hand")
-    joint_names = [model.joint(i).name for i in range(9)]
-    print(joint_names)
-
-    # with mujoco.viewer.launch_passive(
-    #     model=model, data=data, show_left_ui=True, show_right_ui=True
-    # ) as viewer:
+    with mujoco.viewer.launch_passive(
+        model=model, data=data, show_left_ui=True, show_right_ui=True
+    ) as viewer:
     #     # Set viewer to use the named camera
-    #     viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
-    #     viewer.cam.fixedcamid = cam_id
-    #     # mujoco.mjv_defaultFreeCamera(model, viewer.cam)
 
-    #     for _ in range(NUM_EPISODES):
-            
-    #         # Reset simulation data to the 'home' keyframe
-    #         mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
+        mujoco.mjv_defaultFreeCamera(model, viewer.cam)
+        mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
+        while viewer.is_running():
+            for _ in range(NUM_EPISODES):
 
-    #         # set random position for the box
-    #         x_rand = np.random.uniform(low=-0.1, high=0.1) 
-    #         y_rand = np.random.uniform(low=-0.3, high=0.3)
+                # Reset simulation data to the 'home' keyframe
+                mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
 
-    #         x, y = data.qpos[9: 11]
-    #         data.qpos[9: 11] = [x+x_rand, y+y_rand]
+                # set random position for the box
+                x_rand = np.random.uniform(low=-0.1, high=0.1) 
+                y_rand = np.random.uniform(low=-0.3, high=0.3)
 
-    #         configuration.update(data.qpos)
-    #         mujoco.mj_forward(model, data)
+                x, y = data.qpos[9: 11]
+                data.qpos[9: 11] = [x+x_rand, y+y_rand]
 
-    #         # Define tasks
-    #         posture_task = mink.PostureTask(model=model, cost=1e-2)
-    #         posture_task.set_target_from_configuration(configuration)
-            
-    #         # We'll track time ourselves for a smoother trajectory
-    #         local_time = 0.0
-    #         rate = RateLimiter(frequency=50.0, warn=False)
+                configuration.update(data.qpos)
+                mujoco.mj_forward(model, data)
 
-    #         # Get box location
-    #         box_pose = configuration.get_transform_frame_to_world("box", "body")
-    #         box_translation = box_pose.translation()
+                # Define tasks
+                posture_task = mink.PostureTask(model=model, cost=1e-2)
+                posture_task.set_target_from_configuration(configuration)
+                
+                # We'll track time ourselves for a smoother trajectory
+                local_time = 0.0
+                rate = RateLimiter(frequency=50.0, warn=False)
 
-    #         # Set a goal
-    #         approach_translation = box_translation.copy()
-    #         approach_translation[2] += 0.2
-    #         ee_rotation = mink.SO3.from_rpy_radians(np.pi, 0.0, 0.0)
+                # Get box location
+                box_pose = configuration.get_transform_frame_to_world("box", "body")
+                box_translation = box_pose.translation()
 
-    #         approach_goal = mink.SE3.from_rotation_and_translation(ee_rotation, approach_translation)
-    #         approach_task = mink.FrameTask(
-    #             frame_name="attachment_site",
-    #             frame_type="site",
-    #             position_cost=1.0,
-    #             orientation_cost=1.0,
-    #             lm_damping=1.0,
-    #         )
-    #         approach_task.set_target(approach_goal)
-    #         tasks = [approach_task, posture_task]
-    #         success = False
-    #         viewer.sync()
-            
-    #         for _ in range(NUM_FRAMES):
-    #             # Update our local time
-    #             dt = rate.dt
-    #             local_time += dt
-    #             converge_ik(
-    #                 configuration,
-    #                 tasks,
-    #                 dt,
-    #                 SOLVER,
-    #                 POS_THRESHOLD,
-    #                 ORI_THRESHOLD,
-    #                 MAX_ITERS,
-    #             )
-    #             # Set robot controls (first 8 dofs in your configuration)
-    #             data.ctrl = configuration.q[:8]
-    #             # Step simulation
-    #             mujoco.mj_step(model, data)
+                # Set a goal
+                approach_translation = box_translation.copy()
+                approach_translation[2] += 0.2
+                ee_rotation = mink.SO3.from_rpy_radians(np.pi, 0.0, 0.0)
 
-    #             frame_id = model.site("attachment_site").id 
-    #             ee_translation = data.site_xpos[frame_id]
+                approach_goal = mink.SE3.from_rotation_and_translation(ee_rotation, approach_translation)
+                approach_task = mink.FrameTask(
+                    frame_name="attachment_site",
+                    frame_type="site",
+                    position_cost=1.0,
+                    orientation_cost=1.0,
+                    lm_damping=1.0,
+                )
+                approach_task.set_target(approach_goal)
+                tasks = [approach_task, posture_task]
+                success = False
+                
+                
+                for _ in range(NUM_FRAMES):
+                    # Update our local time
+                    dt = rate.dt
+                    local_time += dt
+                    converge_ik(
+                        configuration,
+                        tasks,
+                        dt,
+                        SOLVER,
+                        POS_THRESHOLD,
+                        ORI_THRESHOLD,
+                        MAX_ITERS,
+                    )
+                    # Set robot controls (first 8 dofs in your configuration)
+                    data.ctrl = configuration.q[:8]
+                    # Step simulation
+                    mujoco.mj_step(model, data)
 
-    #             if np.allclose(ee_translation, approach_translation, atol=1e-2):
-    #                 success = True
+                    frame_id = model.site("attachment_site").id 
+                    ee_translation = data.site_xpos[frame_id]
 
-    #             # Visualize at fixed FPS
-    #             viewer.sync()
-    #             rate.sleep()
+                    if np.allclose(ee_translation, approach_translation, atol=1e-2):
+                        success = True
+
+                    # Visualize at fixed FPS
+                    viewer.sync()
+                    rate.sleep()
 
 
 if __name__ == "__main__":
