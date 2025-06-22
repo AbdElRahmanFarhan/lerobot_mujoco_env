@@ -1,17 +1,3 @@
-# Copyright 2024 The HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 from loop_rate_limiters import RateLimiter
 import numpy as np
 
@@ -29,8 +15,6 @@ def inference():
 
     # policy_path = "/home/models/smol_vla_policy/panda_mujoco/reach_cube/panda_mujoco_lerobot/v2/"
     policy = SmolVLAPolicy.from_pretrained("Abderlrahman/smolvla-panda-mujoco-reach-cube")
-    print(policy.config.image_features)
-
 
     mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
     # set random position for the box
@@ -43,10 +27,7 @@ def inference():
     with mujoco.viewer.launch_passive(
         model=model, data=data, show_left_ui=True, show_right_ui=True) as viewer:
                 
-        viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
-        viewer.cam.fixedcamid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "camera_far")
-        # mujoco.mjv_defaultFreeCamera(model, viewer.cam)
-        mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
+        mujoco.mjv_defaultFreeCamera(model, viewer.cam)
         while viewer.is_running():
 
             # replace it with env
@@ -73,7 +54,7 @@ def inference():
             # Set robot controls (first 8 dofs in your configuration)
             # action = action.to("cpu").numpy()
             print(action)
-            data.ctrl = action
+            data.ctrl = np.append(action*(np.pi/180), 0)
 
 
             # Step simulation

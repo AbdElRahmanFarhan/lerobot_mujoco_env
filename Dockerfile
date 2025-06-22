@@ -31,7 +31,7 @@ RUN /opt/venv/bin/pip install --upgrade --no-cache-dir pip \
 
 RUN pip install "mink[examples]"
 RUN pip install qpsolvers[quadprog]
-RUN pip install transformers 
+RUN pip install transformers num2words accelerate
 WORKDIR /home
 
 # Execute in bash shell rather than python
